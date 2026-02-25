@@ -35,6 +35,13 @@ const mdModules = import.meta.glob('./content/**/*.md', {
   import: 'default',
 })
 
+/** 为正文中的绝对路径链接加上 base（部署到 GitHub Pages 子路径时 /article/xxx 会变成 /repo/article/xxx） */
+function fixContentBase(html) {
+  const base = (import.meta.env.BASE_URL || '').replace(/\/$/, '')
+  if (!base) return html
+  return html.replace(/href="\//g, `href="${base}/`)
+}
+
 /** 将 glob 的 path 转为 slug（兼容开发 ./content/ 与生产可能出现的 / 或 content/ 前缀） */
 function pathToSlug(path) {
   return path
@@ -193,7 +200,9 @@ export async function getArticleBySlug(slug) {
     if (raw && typeof raw === 'object' && 'default' in raw) raw = raw.default
     raw = typeof raw === 'string' ? raw : String(raw ?? '')
     const { data: meta = {}, content } = matter(raw)
-    const html = marked(content || '')
+    let html = marked(content || '')
+    // 子路径部署（如 GitHub Pages /repo-name/）时，为正文内 /article/xxx 等绝对链接加上 base，避免点链接 404
+    html = fixContentBase(html)
     let category = (meta && meta.category) ? String(meta.category).trim() : ''
     if (!category && decoded.startsWith('essays/')) category = '散文'
     const parentSlug = (meta && meta.parentSlug) ? String(meta.parentSlug).trim() : ''

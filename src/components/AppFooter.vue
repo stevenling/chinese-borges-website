@@ -1,6 +1,6 @@
 <template>
   <footer class="footer">
-    <p>你是漫山遍野的喜欢呀～</p>
+    <p>小朋友，你是漫山遍野的喜欢呀～</p>
   </footer>
 </template>
 

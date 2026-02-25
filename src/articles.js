@@ -1,8 +1,9 @@
 import matter from 'gray-matter'
+import YAML from 'yaml'
 import { marked } from 'marked'
 
 /** 配置用 slug，不进入文章列表 */
-const CONFIG_SLUGS = ['_site', 'poem/_index']
+const CONFIG_SLUGS = ['_site', 'poem/_index', 'fiction/_index']
 
 /** 默认顶栏分类顺序（无 _site.md 时使用） */
 const DEFAULT_CATEGORIES = ['生平事迹', '诗歌', '小说', '散文', '关于本站']
@@ -45,9 +46,11 @@ function fixContentBase(html) {
 /** 将 glob 的 path 转为 slug（兼容开发 ./content/ 与生产可能出现的 / 或 content/ 前缀） */
 function pathToSlug(path) {
   return path
+    .replace(/\?.*$/, '')
     .replace(/^\.\/content\/?/, '')
     .replace(/^\/?content\/?/, '')
     .replace(/\.md$/i, '')
+    .replace(/\.yml$/i, '')
     .replace(/\\/g, '/')
 }
 
@@ -73,26 +76,77 @@ export async function getSiteConfig() {
   }
 }
 
-/** 从 content/poem/_index.md 读取诗歌入口与诗集列表配置 */
+/** 从 content/poem/_index.yml 读取诗歌入口与诗集列表配置（显式 import 确保被 Vite 打包） */
 export async function getPoetryConfig() {
-  const pathKey = Object.keys(mdModules).find((p) => pathToSlug(p) === 'poem/_index')
-  if (!pathKey) return { title: '诗歌', collections: [{ id: 'La_rosa_profunda', title: '深沉的玫瑰' }] }
+  const defaultConfig = { title: '诗歌', collections: [{ id: 'La_rosa_profunda', title: '深沉的玫瑰' }] }
   try {
-    const load = mdModules[pathKey]
-    let raw = typeof load === 'function' ? await load() : load
-    if (raw && typeof raw.then === 'function') raw = await raw
-    if (raw && typeof raw === 'object' && 'default' in raw) raw = raw.default
-    raw = typeof raw === 'string' ? raw : String(raw ?? '')
-    const { data = {} } = matter(raw)
+    const mod = await import('./content/poem/_index.yml?raw')
+    const raw = (mod && mod.default) ? String(mod.default) : ''
+    if (!raw) return defaultConfig
+    const data = YAML.parse(raw) || {}
     const title = (data.title && String(data.title).trim()) || '诗歌'
     const collections = Array.isArray(data.collections)
       ? data.collections.filter((c) => c && (c.id || c.title))
-      : [{ id: 'La_rosa_profunda', title: '深沉的玫瑰' }]
+      : defaultConfig.collections
     return { title, collections }
   } catch (err) {
-    console.warn('[articles] 读取 poem/_index 配置失败:', err)
-    return { title: '诗歌', collections: [{ id: 'La_rosa_profunda', title: '深沉的玫瑰' }] }
+    console.warn('[articles] 读取 poem/_index.yml 失败:', err)
+    return defaultConfig
   }
+}
+
+/** 从 content/fiction/_index.yml 读取小说入口与小说集列表配置（显式 import 确保被 Vite 打包） */
+export async function getFictionConfig() {
+  const defaultConfig = { title: '小说', collections: [{ id: 'aleph', title: '阿莱夫' }] }
+  try {
+    const mod = await import('./content/fiction/_index.yml?raw')
+    const raw = (mod && mod.default) ? String(mod.default) : ''
+    if (!raw) return defaultConfig
+    const data = YAML.parse(raw) || {}
+    const title = (data.title && String(data.title).trim()) || '小说'
+    const collections = Array.isArray(data.collections)
+      ? data.collections.filter((c) => c && (c.id || c.title))
+      : defaultConfig.collections
+    return { title, collections }
+  } catch (err) {
+    console.warn('[articles] 读取 fiction/_index.yml 失败:', err)
+    return defaultConfig
+  }
+}
+
+/**
+ * 获取指定小说集（目录）下的篇目列表，排除 index，标题取自 frontmatter
+ * @param {string} collectionId - 如 'aleph'、'the_garden_of_forking_paths'
+ * @returns {Promise<Array<{ slug: string, title: string }>>}
+ */
+export async function getFictionCollectionList(collectionId) {
+  const prefix = `./content/fiction/${collectionId}/`
+  const paths = Object.keys(mdModules).filter((p) => p.startsWith(prefix) && /\.md$/i.test(p))
+  const items = await Promise.all(
+    paths.map(async (path) => {
+      const slug = pathToSlug(path)
+      const base = slug.split('/').pop() || ''
+      if (base === 'index') return null
+      const filename = path.replace(/^.*[/\\]/, '').replace(/\.md$/i, '')
+      let title = filename.replace(/^\d+-/, '') || filename
+      try {
+        const load = mdModules[path]
+        let raw = typeof load === 'function' ? await load() : load
+        if (raw && typeof raw.then === 'function') raw = await raw
+        if (raw && typeof raw === 'object' && 'default' in raw) raw = raw.default
+        raw = typeof raw === 'string' ? raw : String(raw ?? '')
+        const { data = {} } = matter(raw)
+        if (data.title && String(data.title).trim()) title = String(data.title).trim()
+      } catch (_) {}
+      return { slug, title }
+    })
+  )
+  const list = items.filter(Boolean)
+  return list.sort((a, b) => {
+    if (a.title === '序言' && b.title !== '序言') return -1
+    if (a.title !== '序言' && b.title === '序言') return 1
+    return a.slug.localeCompare(b.slug)
+  })
 }
 
 export async function getArticleList() {
@@ -150,6 +204,10 @@ export function getPoemCollectionList(collectionId) {
       const filename = path.replace(/^.*[/\\]/, '').replace(/\.md$/i, '')
       const title = filename.replace(/^\d+-/, '') || filename
       return { slug, title }
+    })
+    .filter((item) => {
+      const base = item.slug.split('/').pop() || ''
+      return base !== 'index'
     })
     .sort((a, b) => {
       if (a.title === '序言' && b.title !== '序言') return -1

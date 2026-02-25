@@ -1,0 +1,8 @@
+# 小说入口页标题
+title: 小说
+# 小说集列表：id 对应 content/fiction/{id}/ 目录，title 为展示名
+collections:
+  - id: aleph
+    title: 阿莱夫
+  - id: the_garden_of_forking_paths
+    title: 小径分叉的花园

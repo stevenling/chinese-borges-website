@@ -5,6 +5,8 @@ title: 诗歌
 collections:
   - id: La_rosa_profunda
     title: 深沉的玫瑰
+  - id: the_self_and_the_other
+    title: 另一个，同一个
 ---
 
 此文件仅作配置，不参与文章列表展示。

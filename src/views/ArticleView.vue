@@ -6,6 +6,11 @@
   <div class="article-page">
     <!-- 有文章数据：标题、日期、正文 + 底部导航 -->
     <template v-if="article">
+      <p v-if="showArticleNav" class="back-link">
+        <RouterLink :to="backLink" class="back-icon" aria-label="返回">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </RouterLink>
+      </p>
       <article class="article">
         <header class="article-header">
           <h1>{{ article.title }}</h1>
@@ -13,10 +18,9 @@
         </header>
         <div class="article-body prose" v-html="article.content"></div>
       </article>
-      <!-- 仅部分文章显示「返回 / 下一篇」（生平事迹、关于本站等单页不显示） -->
-      <nav v-if="showArticleNav" class="article-nav">
-        <RouterLink :to="backLink" class="nav-link">← 返回</RouterLink>
-        <RouterLink v-if="nextSlug" :to="`/article/${encodeURIComponent(nextSlug)}`" class="nav-link">→ {{ nextTitle }}</RouterLink>
+      <!-- 底部仅保留「下一篇」；返回已放在标题上方 -->
+      <nav v-if="showArticleNav && nextSlug" class="article-nav">
+        <RouterLink :to="`/article/${encodeURIComponent(nextSlug)}`" class="nav-link">→ {{ nextTitle }}</RouterLink>
       </nav>
     </template>
     <div v-else-if="loading" class="loading">加载中…</div>
@@ -104,7 +108,10 @@ const backLink = computed(() => {
   if (!article.value) return '/'
   const slug = article.value.slug || ''
   const parts = slug.split('/')
+  if (slug.startsWith('poem/') && slug.endsWith('/index')) return '/poem'
   if (slug.startsWith('poem/') && parts.length >= 2) return `/poem/${encodeURIComponent(parts[1])}`
+  if (slug.startsWith('fiction/') && slug.endsWith('/index')) return '/articles/fiction'
+  if (slug.startsWith('fiction/') && parts.length >= 2) return `/fiction/${encodeURIComponent(parts[1])}`
   if (parts.length >= 2) {
     const sectionIndexSlug = parts.slice(0, -1).join('/') + '/index'
     return `/article/${encodeURIComponent(sectionIndexSlug)}`
@@ -161,6 +168,23 @@ watch(() => route.params.slug, load)
   padding-bottom: 2.5rem;
 }
 
+/* 标题上方的返回图标（与底部导航的返回目标一致） */
+.back-link {
+  margin: 0 0 0.75rem;
+}
+
+.back-link .back-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.back-link .back-icon:hover {
+  color: var(--color-accent);
+}
+
 .article-header {
   margin-bottom: 1.75rem;
 }
@@ -193,7 +217,7 @@ watch(() => route.params.slug, load)
   padding-top: 1.25rem;
   border-top: 1px solid var(--color-border);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;

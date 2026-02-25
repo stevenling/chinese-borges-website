@@ -9,6 +9,11 @@
       </ul>
     </template>
     <template v-else>
+      <p class="back-link">
+        <RouterLink to="/poem" class="back-icon" aria-label="返回">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </RouterLink>
+      </p>
       <h1>{{ collectionTitle }}</h1>
       <ul v-if="poems.length" class="poem-list">
         <li v-for="p in poems" :key="p.slug">
@@ -57,6 +62,23 @@ watch(() => collectionId.value, load)
   padding-bottom: 2.5rem;
 }
 
+.back-link {
+  margin: 0 0 0.75rem;
+}
+
+.back-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.back-icon:hover {
+  color: var(--color-accent);
+}
+
+/* 页面标题（诗歌 / 诗集名） */
 .poem-view h1 {
   font-size: 1.5rem;
   font-weight: 500;
@@ -65,6 +87,7 @@ watch(() => collectionId.value, load)
   color: var(--color-text);
 }
 
+/* 诗集列表、篇目列表：无符号列表 */
 .collection-list,
 .poem-list {
   list-style: none;
@@ -83,6 +106,7 @@ watch(() => collectionId.value, load)
   border-bottom: none;
 }
 
+/* 链接样式 */
 .collection-list a,
 .poem-list a {
   font-size: 1rem;
@@ -95,11 +119,13 @@ watch(() => collectionId.value, load)
   color: var(--color-accent);
 }
 
+/* 空状态提示 */
 .empty {
   color: var(--color-text-muted);
   font-size: 0.9375rem;
 }
 
+/* 窄屏适配 */
 @media (max-width: 768px) {
   .poem-view h1 {
     font-size: 1.25rem;

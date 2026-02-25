@@ -35,8 +35,13 @@ const mdModules = import.meta.glob('./content/**/*.md', {
   import: 'default',
 })
 
+/** 将 glob 的 path 转为 slug（兼容开发 ./content/ 与生产可能出现的 / 或 content/ 前缀） */
 function pathToSlug(path) {
-  return path.replace(/^\.\/content\/?/, '').replace(/\.md$/i, '')
+  return path
+    .replace(/^\.\/content\/?/, '')
+    .replace(/^\/?content\/?/, '')
+    .replace(/\.md$/i, '')
+    .replace(/\\/g, '/')
 }
 
 export const contentFileCount = Object.keys(mdModules).length
@@ -175,7 +180,11 @@ export async function getOrderedSlugsFromIndex(indexSlug) {
 
 export async function getArticleBySlug(slug) {
   const decoded = decodeURIComponent(slug)
-  const pathKey = Object.keys(mdModules).find((p) => pathToSlug(p) === decoded)
+  const decodedNFC = decoded.normalize('NFC')
+  const pathKey = Object.keys(mdModules).find((p) => {
+    const s = pathToSlug(p).normalize('NFC')
+    return s === decodedNFC || s === decoded
+  })
   if (!pathKey) return null
   try {
     const load = mdModules[pathKey]

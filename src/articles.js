@@ -3,6 +3,7 @@ import YAML from 'yaml'
 import { marked } from 'marked'
 
 /** 配置用 slug，不进入文章列表 */
+// 只做配置的 md/入口不会被当成普通文章出现在「文章」页或顶栏下拉里。
 const CONFIG_SLUGS = ['_site', 'poem/_index', 'fiction/_index']
 
 /** 默认顶栏分类顺序（无 _site.md 时使用） */
@@ -31,6 +32,8 @@ export function getCategorySlug(categoryName) {
 
 // 与 articles.js 同级的 content 目录，使用 ./ 相对路径（Vite 推荐）
 // 不使用 eager，统一通过 load() 取 default，避免开发/生产环境差异
+// query: '?raw'：给所有 .md 路径都加上 ?raw，告诉 Vite：
+// 「这一类资源我要按 原始文本 来加载」。
 const mdModules = import.meta.glob('./content/**/*.md', {
   query: '?raw',
   import: 'default',
@@ -38,12 +41,16 @@ const mdModules = import.meta.glob('./content/**/*.md', {
 
 /** 为正文中的绝对路径链接加上 base（部署到 GitHub Pages 子路径时 /article/xxx 会变成 /repo/article/xxx） */
 function fixContentBase(html) {
+  // 从 Vite 注入的环境变量中读取基础路径（如 / 或 /repo-name/），并去掉末尾的 /
   const base = (import.meta.env.BASE_URL || '').replace(/\/$/, '')
+  // 如果没有配置 base（本地或根路径部署），直接返回原始 HTML
   if (!base) return html
+  // 将正文里所有以 / 开头的 href（href="/xxx"）前面补上 base，避免子路径部署时链接 404
   return html.replace(/href="\//g, `href="${base}/`)
 }
 
 /** 将 glob 的 path 转为 slug（兼容开发 ./content/ 与生产可能出现的 / 或 content/ 前缀） */
+//「给我一个文件路径（不管前面有没有 ./content/、是不是带 ?raw、是不是 Windows 路径），我帮你变成一个统一格式的 slug，比如 fiction/aleph/永生，后面拿它去做路由 /article/:slug 和查找文章。」
 function pathToSlug(path) {
   return path
     .replace(/\?.*$/, '')
@@ -54,20 +61,32 @@ function pathToSlug(path) {
     .replace(/\\/g, '/')
 }
 
+//「导出一个 contentFileCount 常量，值是 content 目录下所有 Markdown 文件的数量。」
 export const contentFileCount = Object.keys(mdModules).length
 
 /** 从 content/_site.md 读取顶栏分类与链接配置 */
 export async function getSiteConfig() {
+  // 在所有 Markdown 模块路径中，找到 slug 为 '_site' 的那一个（即 content/_site.md）
   const pathKey = Object.keys(mdModules).find((p) => pathToSlug(p) === '_site')
+  // 如果没找到 _site.md，直接返回默认的分类与空链接配置
   if (!pathKey) return { categories: DEFAULT_CATEGORIES, links: {} }
+  // 读取并解析 _site.md 的 frontmatter
   try {
+    // 从 glob 索引中拿到对应的加载函数或已加载结果
     const load = mdModules[pathKey]
+    // 如果是函数则调用加载文件内容，否则直接使用现有值
     let raw = typeof load === 'function' ? await load() : load
+    // 若返回的是 Promise，再 await 一次保证拿到最终结果
     if (raw && typeof raw.then === 'function') raw = await raw
+    // 若返回的是模块对象（含 default 字段），取 default 作为真正内容
     if (raw && typeof raw === 'object' && 'default' in raw) raw = raw.default
+    // 确保最终拿到的是字符串；若不是字符串则做一次安全的 String 转换
     raw = typeof raw === 'string' ? raw : String(raw ?? '')
+    // 用 gray-matter 解析 frontmatter，data 即 _site.md 顶部 --- 中的配置对象
     const { data = {} } = matter(raw)
+    // 若 data.categories 是数组则使用，否则退回到默认分类顺序
     const categories = Array.isArray(data.categories) ? data.categories : DEFAULT_CATEGORIES
+    // 若 data.links 是普通对象则使用，否则退回到空对象
     const links = data.links && typeof data.links === 'object' ? data.links : {}
     return { categories, links }
   } catch (err) {
@@ -80,6 +99,7 @@ export async function getSiteConfig() {
 export async function getPoetryConfig() {
   const defaultConfig = { title: '诗歌', collections: [{ id: 'La_rosa_profunda', title: '深沉的玫瑰' }] }
   try {
+    // 显式 import 确保被 Vite 打包
     const mod = await import('./content/poem/_index.yml?raw')
     const raw = (mod && mod.default) ? String(mod.default) : ''
     if (!raw) return defaultConfig
@@ -157,6 +177,7 @@ export async function getArticleList() {
     paths.map(async (path) => {
       try {
         const slug = pathToSlug(path)
+        // 发现这是配置 md 的入口，不参与文章列表
         if (CONFIG_SLUGS.includes(slug)) return null
         const load = mdModules[path]
         let raw = typeof load === 'function' ? await load() : load

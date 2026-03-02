@@ -25,10 +25,11 @@
 | 路径 | 名称 | 组件 | 说明 |
 |------|------|------|------|
 | `/` | Home | HomeView | 首页，固定诗句「我用什么才能留住你」 |
-| `/poem` | Poem | PoemView | 诗歌入口：标题「诗歌」+ 诗集列表（来自 `poem/_index.yml`） |
-| `/poem/:collectionId` | PoemCollection | PoemView | 某诗集目录：返回图标 + 诗集名 + 篇目列表，返回→`/poem` |
-| `/fiction` | Fiction | FictionView | 小说入口：标题「小说」+ 小说集列表（来自 `fiction/_index.yml`） |
-| `/fiction/:collectionId` | FictionCollection | FictionView | 某小说集目录：返回图标 + 小说集名 + 篇目列表，返回→`/fiction` |
+| `/poem` | Poem | PoemIndexView | 诗歌入口：标题「诗歌」+ 诗集列表（来自 `poem/_index.yml`） |
+| `/poem/:collectionId/:articleSlug(.*)` | PoemArticle | ArticleView | 诗集内单篇正文（URL 与当前诗集一致，如 `/poem/La_rosa_profunda/30-序言`） |
+| `/poem/:collectionId` | PoemCollection | PoemCollectionView | 某诗集目录：返回图标 + 诗集名 + 篇目列表，返回→`/poem` |
+| `/fiction` | Fiction | FictionIndexView | 小说入口：标题「小说」+ 小说集列表（来自 `fiction/_index.yml`） |
+| `/fiction/:collectionId` | FictionCollection | FictionCollectionView | 某小说集目录：返回图标 + 小说集名 + 篇目列表，返回→`/fiction` |
 | `/articles` | Articles | ArticlesView | 文章总览：标题「文章」+ 全站文章列表 |
 | `/articles/:category` | ArticlesByCategory | ArticlesView | 分类列表：标题为分类名（如「小说」「诗歌」「散文」）+ 该分类下文章或二级目录 |
 | `/article/:slug` | Article | ArticleView | 单篇文章：任意一篇 md 的正文，底部有「返回」「下一篇」导航（部分文章不显示） |
@@ -41,7 +42,7 @@
   - 配置：`content/poem/_index.yml`（title、collections）。  
   - 入口：`/poem` → 列出「深沉的玫瑰」「另一个，同一个」等。  
   - 目录：`/poem/La_rosa_profunda` 等 → 列出该诗集下篇目（来自 `getPoemCollectionList`，排除 index）。  
-  - 单篇：`/article/poem/La_rosa_profunda/30-序言` 等，返回→诗集目录或 `/poem`（index 篇返回 `/poem`）。
+  - 单篇：诗集目录页内链为 `/poem/La_rosa_profunda/30-序言`，通用仍可用 `/article/poem/La_rosa_profunda/30-序言`；返回→诗集目录或 `/poem`（index 篇返回 `/poem`）。
 
 - **小说**  
   - 配置：`content/fiction/_index.yml`（title、collections）。  

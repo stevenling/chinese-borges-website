@@ -1,6 +1,6 @@
 <!--
-  单篇文章正文页：路由 /article/:slug
-  根据 URL 中的 slug 加载对应 Markdown 文章并渲染；提供「返回」与「下一篇」导航。
+  单篇文章正文页：路由 /article/:slug 或 /poem/:collectionId/:articleSlug
+  根据 URL 解析出 slug 后加载对应 Markdown 并渲染；提供「返回」与「下一篇」导航。诗集内文章优先用 /poem/... 链接。
 -->
 <template>
   <div class="article-page">
@@ -20,7 +20,7 @@
       </article>
       <!-- 底部仅保留「下一篇」；返回已放在标题上方 -->
       <nav v-if="showArticleNav && nextSlug" class="article-nav">
-        <RouterLink :to="`/article/${encodeURIComponent(nextSlug)}`" class="nav-link">→ {{ nextTitle }}</RouterLink>
+        <RouterLink :to="nextArticleLink" class="nav-link">→ {{ nextTitle }}</RouterLink>
       </nav>
     </template>
     <div v-else-if="loading" class="loading">加载中…</div>
@@ -37,6 +37,13 @@ import { useRoute } from 'vue-router'
 import { getArticleBySlug, getArticleList, getPoemCollectionList, getSiteConfig, getCategorySlug, getOrderedSlugsFromIndex } from '@/articles'
 
 const route = useRoute()
+/** 当前用于加载文章的 slug：/poem/:cid/:articleSlug 时拼成 poem/cid/articleSlug，否则为 params.slug */
+const effectiveSlug = computed(() => {
+  if (route.name === 'PoemArticle' && route.params.collectionId && route.params.articleSlug !== undefined) {
+    return `poem/${route.params.collectionId}/${route.params.articleSlug}`
+  }
+  return route.params.slug ?? ''
+})
 /** 当前文章数据（title、content、category、slug、parentSlug 等），由 getArticleBySlug 拉取 */
 const article = ref(null)
 /** 是否处于加载中，用于显示「加载中…」 */
@@ -81,6 +88,17 @@ const nextTitle = computed(() => {
   if (!nextSlug.value) return ''
   const a = articleList.value.find((x) => x.slug === nextSlug.value)
   return a ? a.title : nextSlug.value
+})
+
+/** 下一篇的跳转链接：当前为诗集内页时用 /poem/:cid/:articleSlug，否则用 /article/:slug */
+const nextArticleLink = computed(() => {
+  const slug = nextSlug.value
+  if (!slug) return ''
+  if (route.name === 'PoemArticle' && slug.startsWith('poem/') && route.params.collectionId) {
+    const rest = slug.split('/').slice(2).join('/')
+    if (rest) return `/poem/${encodeURIComponent(route.params.collectionId)}/${encodeURIComponent(rest)}`
+  }
+  return `/article/${encodeURIComponent(slug)}`
 })
 
 /**
@@ -130,10 +148,11 @@ function formatDate(d) {
   return isNaN(date.getTime()) ? d : date.toLocaleDateString('zh-CN')
 }
 
-/** 根据当前路由 params.slug 拉取文章并写入 article，用于首屏与路由变化时 */
+/** 根据 effectiveSlug 拉取文章并写入 article，用于首屏与路由变化时 */
 async function load() {
   loading.value = true
-  article.value = await getArticleBySlug(route.params.slug)
+  const slug = effectiveSlug.value
+  article.value = slug ? await getArticleBySlug(slug) : null
   orderedSiblingSlugs.value = []
   if (article.value && article.value.slug) {
     const parts = article.value.slug.split('/')
@@ -158,8 +177,8 @@ onMounted(async () => {
   articleList.value = list
   await load()
 })
-/** 同一页面内 slug 变化（如从一篇文章点进另一篇）时重新拉取 */
-watch(() => route.params.slug, load)
+/** 同一页面内 slug 或诗集内 articleSlug 变化时重新拉取 */
+watch(effectiveSlug, load)
 </script>
 
 <style scoped>
